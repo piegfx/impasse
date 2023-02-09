@@ -104,6 +104,14 @@ pub struct Texture {
 }
 
 #[derive(Debug)]
+pub struct Image {
+    pub uri:         Option<String>,
+    pub mime_type:   Option<String>,
+    pub buffer_view: Option<i32>,
+    pub name:        Option<String>
+}
+
+#[derive(Debug)]
 pub struct Gltf {
     pub asset:     Asset,
     pub scene:     Option<i32>,
@@ -112,6 +120,7 @@ pub struct Gltf {
     pub materials: Option<Vec<Material>>,
     pub meshes:    Option<Vec<Mesh>>,
     pub textures:  Option<Vec<Texture>>,
+    pub images:    Option<Vec<Image>>,
 
     pub buffers:   Vec<Vec<u8>>
 }
@@ -488,9 +497,51 @@ impl Importer for Gltf {
             None
         };
 
+        let images = if let Some(s_images) = json.get("images") {
+            let s_images = s_images.as_array().unwrap();
+
+            let mut images = Vec::with_capacity(s_images.len());
+            for image in s_images {
+                let uri = if let Some(ui) = image.get("uri") {
+                    Some(ui.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                let mime_type = if let Some(mt) = image.get("mimeType") {
+                    Some(mt.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                let buffer_view = if let Some(bv) = image.get("bufferView") {
+                    Some(bv.as_i64().unwrap() as i32)
+                } else {
+                    None
+                };
+
+                let name = if let Some(nm) = image.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                images.push(Image {
+                    uri,
+                    mime_type,
+                    buffer_view,
+                    name
+                });
+            }
+
+            Some(images)
+        } else {
+            None
+        };
+
         let mut buffers = Vec::new();
 
-        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, buffers })
+        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, images, buffers })
     }
 }
 
