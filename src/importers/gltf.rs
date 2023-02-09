@@ -147,9 +147,9 @@ pub struct AccessorSparseValues {
 
 #[derive(Debug)]
 pub struct AccessorSparse {
-    pub count: i32,
+    pub count:   i32,
     pub indices: AccessorSparseIndices,
-    pub values: AccessorSparseValues
+    pub values:  AccessorSparseValues
 }
 
 #[derive(Debug)]
@@ -183,6 +183,32 @@ pub struct BufferView {
 }
 
 #[derive(Debug)]
+pub enum TextureFilter {
+    Nearest,
+    Linear,
+    NearestMipmapNearest,
+    LinearMipmapNearest,
+    NearestMipmapLinear,
+    LinearMipmapLinear
+}
+
+#[derive(Debug)]
+pub enum TextureWrapMode {
+    ClampToEdge,
+    MirroredRepeat,
+    Repeat
+}
+
+#[derive(Debug)]
+pub struct Sampler {
+    pub mag_filter: Option<TextureFilter>,
+    pub min_filter: Option<TextureFilter>,
+    pub wrap_s:     TextureWrapMode,
+    pub wrap_t:     TextureWrapMode,
+    pub name:       Option<String>
+}
+
+#[derive(Debug)]
 pub struct Gltf {
     pub asset:        Asset,
     pub scene:        Option<i32>,
@@ -194,6 +220,7 @@ pub struct Gltf {
     pub images:       Option<Vec<Image>>,
     pub accessors:    Option<Vec<Accessor>>,
     pub buffer_views: Option<Vec<BufferView>>,
+    pub samplers:     Option<Vec<Sampler>>,
 
     pub buffers:      Vec<Vec<u8>>
 }
@@ -811,9 +838,71 @@ impl Importer for Gltf {
             None
         };
 
+        let samplers = if let Some(s_samplers) = json.get("samplers") {
+            let s_samplers = s_samplers.as_array().unwrap();
+
+            let mut samplers = Vec::with_capacity(s_samplers.len());
+            for sampler in s_samplers {
+                let mag_filter = if let Some(mf) = sampler.get("magFilter") {
+                    Some(get_texture_filter(mf.as_i64().unwrap()))
+                } else {
+                    None
+                };
+
+                let min_filter = if let Some(mf) = sampler.get("minFilter") {
+                    Some(get_texture_filter(mf.as_i64().unwrap()))
+                } else {
+                    None
+                };
+
+                let wrap_s = if let Some(ws) = sampler.get("wrapS") {
+                    get_wrap_mode(ws.as_i64().unwrap())
+                } else {
+                    TextureWrapMode::Repeat
+                };
+
+                let wrap_t = if let Some(wt) = sampler.get("wrapT") {
+                    get_wrap_mode(wt.as_i64().unwrap())
+                } else {
+                    TextureWrapMode::Repeat
+                };
+
+                let name = if let Some(nm) = sampler.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                samplers.push(Sampler {
+                    mag_filter,
+                    min_filter,
+                    wrap_s,
+                    wrap_t,
+                    name,
+                });
+            }
+
+            Some(samplers)
+        } else {
+            None
+        };
+
         let mut buffers = Vec::new();
 
-        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, images, accessors, buffer_views, buffers })
+        Ok(Gltf {
+            asset,
+            scene,
+            scenes,
+            nodes,
+            materials,
+            meshes,
+            textures,
+            images,
+            accessors,
+            buffer_views,
+            samplers,
+            buffers
+        })
     }
 }
 
@@ -830,4 +919,25 @@ fn get_texture_info(value: &Value) -> TextureInfo {
     };
 
     TextureInfo { index, tex_coord, scalar }
+}
+
+fn get_texture_filter(value: i64) -> TextureFilter {
+    match value {
+        9728 => TextureFilter::Nearest,
+        9729 => TextureFilter::Linear,
+        9984 => TextureFilter::NearestMipmapNearest,
+        9985 => TextureFilter::LinearMipmapNearest,
+        9986 => TextureFilter::NearestMipmapLinear,
+        9987 => TextureFilter::LinearMipmapLinear,
+        tf => panic!("Invalid texture filter {tf}")
+    }
+}
+
+fn get_wrap_mode(value: i64) -> TextureWrapMode {
+    match value {
+        33071 => TextureWrapMode::ClampToEdge,
+        33648 => TextureWrapMode::MirroredRepeat,
+        10497 => TextureWrapMode::Repeat,
+        wm => panic!("Invalid wrap mode.")
+    }
 }
