@@ -167,18 +167,35 @@ pub struct Accessor {
 }
 
 #[derive(Debug)]
-pub struct Gltf {
-    pub asset:     Asset,
-    pub scene:     Option<i32>,
-    pub scenes:    Option<Vec<Scene>>,
-    pub nodes:     Option<Vec<Node>>,
-    pub materials: Option<Vec<Material>>,
-    pub meshes:    Option<Vec<Mesh>>,
-    pub textures:  Option<Vec<Texture>>,
-    pub images:    Option<Vec<Image>>,
-    pub accessors: Option<Vec<Accessor>>,
+pub enum Target {
+    ArrayBuffer,
+    ElementArrayBuffer
+}
 
-    pub buffers:   Vec<Vec<u8>>
+#[derive(Debug)]
+pub struct BufferView {
+    pub buffer:      i32,
+    pub byte_offset: i32,
+    pub byte_length: i32,
+    pub byte_stride: Option<i32>,
+    pub target:      Option<Target>,
+    pub name:        Option<String>
+}
+
+#[derive(Debug)]
+pub struct Gltf {
+    pub asset:        Asset,
+    pub scene:        Option<i32>,
+    pub scenes:       Option<Vec<Scene>>,
+    pub nodes:        Option<Vec<Node>>,
+    pub materials:    Option<Vec<Material>>,
+    pub meshes:       Option<Vec<Mesh>>,
+    pub textures:     Option<Vec<Texture>>,
+    pub images:       Option<Vec<Image>>,
+    pub accessors:    Option<Vec<Accessor>>,
+    pub buffer_views: Option<Vec<BufferView>>,
+
+    pub buffers:      Vec<Vec<u8>>
 }
 
 impl Importer for Gltf {
@@ -742,9 +759,61 @@ impl Importer for Gltf {
             None
         };
 
+        let buffer_views = if let Some(s_buffer_views) = json.get("bufferViews") {
+            let s_buffer_views = s_buffer_views.as_array().unwrap();
+
+            let mut buffer_views = Vec::with_capacity(s_buffer_views.len());
+            for view in s_buffer_views { 
+                let buffer = view["buffer"].as_i64().unwrap() as i32;
+                
+                let byte_offset = if let Some(bo) = view.get("byteOffset") {
+                    bo.as_i64().unwrap() as i32
+                } else {
+                    0
+                };
+
+                let byte_length = view["byteLength"].as_i64().unwrap() as i32;
+
+                let byte_stride = if let Some(bs) = view.get("byteStride") {
+                    Some(bs.as_i64().unwrap() as i32)
+                } else {
+                    None
+                };
+
+                let target = if let Some(tg) = view.get("target") {
+                    Some(match tg.as_i64().unwrap() {
+                        34962 => Target::ArrayBuffer,
+                        34963 => Target::ElementArrayBuffer,
+                        tg => panic!("Unrecognized target {tg}.")
+                    })
+                } else {
+                    None
+                };
+
+                let name = if let Some(nm) = view.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                buffer_views.push(BufferView {
+                    buffer,
+                    byte_offset,
+                    byte_length,
+                    byte_stride,
+                    target,
+                    name
+                });
+            }
+
+            Some(buffer_views)
+        } else {
+            None
+        };
+
         let mut buffers = Vec::new();
 
-        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, images, accessors, buffers })
+        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, images, accessors, buffer_views, buffers })
     }
 }
 
