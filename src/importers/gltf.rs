@@ -112,6 +112,61 @@ pub struct Image {
 }
 
 #[derive(Debug)]
+pub enum ComponentType {
+    Byte,
+    UnsignedByte,
+    Short,
+    UnsignedShort,
+    UnsignedInt,
+    Float
+}
+
+#[derive(Debug)]
+pub enum AccessorType {
+    Scalar,
+    Vec2,
+    Vec3,
+    Vec4,
+    Mat2,
+    Mat3,
+    Mat4
+}
+
+#[derive(Debug)]
+pub struct AccessorSparseIndices {
+    pub buffer_view:    i32,
+    pub byte_offset:    i32,
+    pub component_type: ComponentType
+}
+
+#[derive(Debug)]
+pub struct AccessorSparseValues {
+    pub buffer_view: i32,
+    pub byte_offset: i32
+}
+
+#[derive(Debug)]
+pub struct AccessorSparse {
+    pub count: i32,
+    pub indices: AccessorSparseIndices,
+    pub values: AccessorSparseValues
+}
+
+#[derive(Debug)]
+pub struct Accessor {
+    pub buffer_view:    Option<i32>,
+    pub byte_offset:    i32,
+    pub component_type: ComponentType,
+    pub normalized:     bool,
+    pub count:          i32,
+    pub accessor_type:  AccessorType,
+    pub max:            Option<Vec<f32>>,
+    pub min:            Option<Vec<f32>>,
+    pub sparse:         Option<AccessorSparse>,
+    pub name:           Option<String>
+}
+
+#[derive(Debug)]
 pub struct Gltf {
     pub asset:     Asset,
     pub scene:     Option<i32>,
@@ -121,6 +176,7 @@ pub struct Gltf {
     pub meshes:    Option<Vec<Mesh>>,
     pub textures:  Option<Vec<Texture>>,
     pub images:    Option<Vec<Image>>,
+    pub accessors: Option<Vec<Accessor>>,
 
     pub buffers:   Vec<Vec<u8>>
 }
@@ -539,9 +595,156 @@ impl Importer for Gltf {
             None
         };
 
+        let accessors = if let Some(s_accessors) = json.get("accessors") {
+            let s_accessors = s_accessors.as_array().unwrap();
+
+            let mut accessors = Vec::with_capacity(s_accessors.len());
+            for accessor in s_accessors {
+                let buffer_view = if let Some(bv) = accessor.get("bufferView") {
+                    Some(bv.as_i64().unwrap() as i32)
+                } else {
+                    None
+                };
+
+                let byte_offset = if let Some(bo) = accessor.get("byteOffset") {
+                    bo.as_i64().unwrap() as i32
+                } else {
+                    0
+                };
+
+                let component_type = match accessor["componentType"].as_i64().unwrap() {
+                    5120 => ComponentType::Byte,
+                    5121 => ComponentType::UnsignedByte,
+                    5122 => ComponentType::Short,
+                    5123 => ComponentType::UnsignedShort,
+                    5125 => ComponentType::UnsignedInt,
+                    5126 => ComponentType::Float,
+                    ct => panic!("Unrecognized component type {ct}")
+                };
+
+                let normalized = if let Some(nm) = accessor.get("normalized") {
+                    nm.as_bool().unwrap()
+                } else {
+                    false
+                };
+
+                let count = accessor["count"].as_i64().unwrap() as i32;
+                
+                let accessor_type = match accessor["type"].as_str().unwrap() {
+                    "SCALAR" => AccessorType::Scalar,
+                    "VEC2" => AccessorType::Vec2,
+                    "VEC3" => AccessorType::Vec3,
+                    "VEC4" => AccessorType::Vec4,
+                    "MAT2" => AccessorType::Mat2,
+                    "MAT3" => AccessorType::Mat3,
+                    "MAT4" => AccessorType::Mat4,
+                    at => panic!("Unrecognized accessor type \"{at}\".")
+                };
+
+                let max = if let Some(mx) = accessor.get("max") {
+                    let mx = mx.as_array().unwrap();
+                    
+                    let mut max = Vec::with_capacity(mx.len());
+                    for value in mx {
+                        max.push(value.as_f64().unwrap() as f32);
+                    }
+
+                    Some(max)
+                } else {
+                    None
+                };
+
+                let min = if let Some(mn) = accessor.get("min") {
+                    let mn = mn.as_array().unwrap();
+                    
+                    let mut min = Vec::with_capacity(mn.len());
+                    for value in mn {
+                        min.push(value.as_f64().unwrap() as f32);
+                    }
+
+                    Some(min)
+                } else {
+                    None
+                };
+
+                let sparse = if let Some(s_sparce) = accessor.get("sparse") {
+                    let count = s_sparce["count"].as_i64().unwrap() as i32;
+
+                    let s_indices = &s_sparce["indices"];
+
+                    let buffer_view = s_indices["bufferView"].as_i64().unwrap() as i32;
+
+                    let byte_offset = if let Some(bo) = s_indices.get("byteOffset") {
+                        bo.as_i64().unwrap() as i32
+                    } else {
+                        0
+                    };
+
+                    let component_type = match s_indices["componentType"].as_i64().unwrap() {
+                        5121 => ComponentType::UnsignedByte,
+                        5123 => ComponentType::UnsignedShort,
+                        5125 => ComponentType::UnsignedInt,
+                        ct => panic!("Unsupported component type {ct}.")
+                    };
+
+                    let indices = AccessorSparseIndices {
+                        buffer_view,
+                        byte_offset,
+                        component_type
+                    };
+
+                    let s_values = &s_sparce["values"];
+
+                    let buffer_view = s_values["bufferView"].as_i64().unwrap() as i32;
+
+                    let byte_offset = if let Some(bo) = s_values.get("byteOffset") {
+                        bo.as_i64().unwrap() as i32
+                    } else {
+                        0
+                    };
+
+                    let values = AccessorSparseValues {
+                        buffer_view,
+                        byte_offset
+                    };
+
+                    Some(AccessorSparse {
+                        count,
+                        indices,
+                        values
+                    })
+                } else {
+                    None
+                };
+
+                let name = if let Some(nm) = accessor.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                accessors.push(Accessor {
+                    buffer_view,
+                    byte_offset,
+                    component_type,
+                    normalized,
+                    count,
+                    accessor_type,
+                    max,
+                    min,
+                    sparse,
+                    name,
+                });
+            }
+
+            Some(accessors)
+        } else {
+            None
+        };
+
         let mut buffers = Vec::new();
 
-        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, images, buffers })
+        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, images, accessors, buffers })
     }
 }
 
