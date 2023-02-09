@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, collections::HashMap};
 
 use serde_json::Value;
 
@@ -29,7 +29,7 @@ pub struct Node {
     pub rotation:    crate::Vec4,
     pub scale:       crate::Vec3,
     pub translation: crate::Vec3,
-    pub weights:     Option<Vec<i32>>,
+    pub weights:     Option<Vec<f32>>,
     pub name:        Option<String>
 }
 
@@ -70,14 +70,42 @@ pub struct Material {
 }
 
 #[derive(Debug)]
-pub struct Gltf {
-    pub asset:   Asset,
-    pub scene:   Option<i32>,
-    pub scenes:  Option<Vec<Scene>>,
-    pub nodes:   Option<Vec<Node>>,
-    pub materials: Option<Vec<Material>>,
+pub enum Topology {
+    Points,
+    Lines,
+    LineLoop,
+    LineStrip,
+    Triangles,
+    TriangleStrip,
+    TriangleFan
+}
 
-    pub buffers: Vec<Vec<u8>>
+#[derive(Debug)]
+pub struct MeshPrimitive {
+    pub attributes: HashMap<String, i32>,
+    pub indices:    Option<i32>,
+    pub material:   Option<i32>,
+    pub mode:       Topology,
+    // TODO: Targets, I have no idea what the JSON object looks like so unable to implement
+}
+
+#[derive(Debug)]
+pub struct Mesh {
+    pub primitives: Vec<MeshPrimitive>,
+    pub weights:    Option<Vec<f32>>,
+    pub name:       Option<String>
+}
+
+#[derive(Debug)]
+pub struct Gltf {
+    pub asset:     Asset,
+    pub scene:     Option<i32>,
+    pub scenes:    Option<Vec<Scene>>,
+    pub nodes:     Option<Vec<Node>>,
+    pub materials: Option<Vec<Material>>,
+    pub meshes:    Option<Vec<Mesh>>,
+
+    pub buffers:   Vec<Vec<u8>>
 }
 
 impl Importer for Gltf {
@@ -196,7 +224,7 @@ impl Importer for Gltf {
 
                     let mut weights = Vec::with_capacity(s_weights.len());
                     for weight in s_weights {
-                        weights.push(weight.as_i64().unwrap() as i32);
+                        weights.push(weight.as_f64().unwrap() as f32);
                     }
 
                     Some(weights)
@@ -343,9 +371,87 @@ impl Importer for Gltf {
             None
         };
 
+        let meshes = if let Some(s_meshes) = json.get("meshes") {
+            let s_meshes = s_meshes.as_array().unwrap();
+            let mut meshes = Vec::with_capacity(s_meshes.len());
+            
+            for mesh in s_meshes {
+                let s_primitives = mesh["primitives"].as_array().unwrap();
+                let mut primitives = Vec::with_capacity(s_primitives.len());
+
+                for primitive in s_primitives {
+                    let s_attributes = primitive["attributes"].as_object().unwrap();
+                    let mut attributes = HashMap::with_capacity(s_attributes.len());
+
+                    for (key, value) in s_attributes {
+                        attributes.insert(key.to_string(), value.as_i64().unwrap() as i32);
+                    }
+
+                    let indices = if let Some(id) = primitive.get("indices") {
+                        Some(id.as_i64().unwrap() as i32)
+                    } else {
+                        None
+                    };
+
+                    let material = if let Some(mat) = primitive.get("material") {
+                        Some(mat.as_i64().unwrap() as i32)
+                    } else {
+                        None
+                    };
+
+                    let mode = if let Some(md) = primitive.get("mode") {
+                        match md.as_i64().unwrap() {
+                            0 => Topology::Points,
+                            1 => Topology::Lines,
+                            2 => Topology::LineLoop,
+                            3 => Topology::LineStrip,
+                            4 => Topology::Triangles,
+                            5 => Topology::TriangleStrip,
+                            6 => Topology::TriangleFan,
+                            _ => Topology::Triangles
+                        }
+                    } else {
+                        Topology::Triangles
+                    };
+
+                    primitives.push(MeshPrimitive {
+                        attributes,
+                        indices,
+                        material,
+                        mode,
+                    });
+                }
+
+                let weights = if let Some(s_weights) = mesh.get("weights") {
+                    let s_weights = s_weights.as_array().unwrap();
+
+                    let mut weights = Vec::with_capacity(s_weights.len());
+                    for weight in s_weights {
+                        weights.push(weight.as_f64().unwrap() as f32);
+                    }
+
+                    Some(weights)
+                } else {
+                    None
+                };
+
+                let name = if let Some(nm) = mesh.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+
+                meshes.push(Mesh {
+                    primitives,
+                    weights,
+                    name
+                });
+            }
+
+            Some(meshes)
+        } else {
+            None
+        };
+
         let mut buffers = Vec::new();
 
-        Ok(Gltf { asset, scene, scenes, nodes, materials, buffers })
+        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, buffers })
     }
 }
 
