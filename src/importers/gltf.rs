@@ -6,11 +6,11 @@ use super::Importer;
 
 #[derive(Debug)]
 pub struct Asset {
-    version:     String,
+    pub version:     String,
 
-    copyright:   Option<String>,
-    generator:   Option<String>,
-    min_version: Option<String>
+    pub copyright:   Option<String>,
+    pub generator:   Option<String>,
+    pub min_version: Option<String>
 }
 
 #[derive(Debug)]
@@ -97,6 +97,13 @@ pub struct Mesh {
 }
 
 #[derive(Debug)]
+pub struct Texture {
+    pub sampler: Option<i32>,
+    pub source:  Option<i32>,
+    pub name:    Option<String>
+}
+
+#[derive(Debug)]
 pub struct Gltf {
     pub asset:     Asset,
     pub scene:     Option<i32>,
@@ -104,6 +111,7 @@ pub struct Gltf {
     pub nodes:     Option<Vec<Node>>,
     pub materials: Option<Vec<Material>>,
     pub meshes:    Option<Vec<Mesh>>,
+    pub textures:  Option<Vec<Texture>>,
 
     pub buffers:   Vec<Vec<u8>>
 }
@@ -449,9 +457,40 @@ impl Importer for Gltf {
             None
         };
 
+        let textures = if let Some(s_textures) = json.get("textures") {
+            let s_textures = s_textures.as_array().unwrap();
+
+            let mut textures = Vec::with_capacity(s_textures.len());
+            for texture in s_textures {
+                let sampler = if let Some(smp) = texture.get("sampler") {
+                    Some(smp.as_i64().unwrap() as i32)
+                } else {
+                    None
+                };
+
+                let source = if let Some(src) = texture.get("source") {
+                    Some(src.as_i64().unwrap() as i32)
+                } else {
+                    None
+                };
+
+                let name = if let Some(nm) = texture.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+
+                textures.push(Texture {
+                    sampler,
+                    source,
+                    name
+                });
+            }
+
+            Some(textures)
+        } else {
+            None
+        };
+
         let mut buffers = Vec::new();
 
-        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, buffers })
+        Ok(Gltf { asset, scene, scenes, nodes, materials, meshes, textures, buffers })
     }
 }
 
