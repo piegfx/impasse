@@ -5,7 +5,7 @@ use serde_json::Value;
 use super::Importer;
 
 #[derive(Debug)]
-pub struct GltfAsset {
+pub struct Asset {
     version:     String,
 
     copyright:   Option<String>,
@@ -14,13 +14,13 @@ pub struct GltfAsset {
 }
 
 #[derive(Debug)]
-pub struct GltfScene {
+pub struct Scene {
     pub nodes: Option<Vec<i32>>,
     pub name:  Option<String>
 }
 
 #[derive(Debug)]
-pub struct GltfNode {
+pub struct Node {
     pub camera:      Option<i32>,
     pub children:    Option<Vec<i32>>,
     pub skin:        Option<i32>,
@@ -34,11 +34,48 @@ pub struct GltfNode {
 }
 
 #[derive(Debug)]
+pub struct TextureInfo {
+    pub index:     i32,
+    pub tex_coord: i32,
+    pub scalar:    f32
+}
+
+#[derive(Debug)]
+pub struct PbrMetallicRoughness {
+    pub base_color_factor:          crate::Vec4,
+    pub base_color_texture:         Option<TextureInfo>,
+    pub metallic_factor:            f32,
+    pub roughness_factor:           f32,
+    pub metallic_roughness_texture: Option<TextureInfo>
+}
+
+#[derive(Debug)]
+pub enum AlphaMode {
+    Opaque,
+    Mask,
+    Blend
+}
+
+#[derive(Debug)]
+pub struct Material {
+    pub name:                    Option<String>,
+    pub pbr_metallic_roughness:  Option<PbrMetallicRoughness>,
+    pub normal_texture:          Option<TextureInfo>,
+    pub occlusion_texture:       Option<TextureInfo>,
+    pub emissive_texture:        Option<TextureInfo>,
+    pub emissive_factor:         crate::Vec3,
+    pub alpha_mode:              AlphaMode,
+    pub alpha_cutoff:            f32,
+    pub double_sided:            bool
+}
+
+#[derive(Debug)]
 pub struct Gltf {
-    pub asset:   GltfAsset,
+    pub asset:   Asset,
     pub scene:   Option<i32>,
-    pub scenes:  Option<Vec<GltfScene>>,
-    pub nodes:   Option<Vec<GltfNode>>,
+    pub scenes:  Option<Vec<Scene>>,
+    pub nodes:   Option<Vec<Node>>,
+    pub materials: Option<Vec<Material>>,
 
     pub buffers: Vec<Vec<u8>>
 }
@@ -50,7 +87,7 @@ impl Importer for Gltf {
 
         // Get the asset information - no need to check here, a GLTF file is required to have "asset".
         let s_asset = &json["asset"];
-        let asset = GltfAsset {
+        let asset = Asset {
             version: s_asset["version"].as_str().unwrap().to_string(),
             copyright: if let Some(cr) = s_asset.get("copyright") { Some(cr.as_str().unwrap().to_string()) } else { None },
             generator: if let Some(gn) = s_asset.get("generator") { Some(gn.as_str().unwrap().to_string()) } else { None },
@@ -63,10 +100,10 @@ impl Importer for Gltf {
         // Get the scenes information.
         let scenes = if let Some(s_scenes) = json.get("scenes") {
             let mut tmp_scenes = Vec::new();
-            for value in s_scenes.as_array().unwrap().into_iter() {
-                let name = if let Some(nm) = value.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+            for scene in s_scenes.as_array().unwrap().into_iter() {
+                let name = if let Some(nm) = scene.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
                 
-                let nodes = if let Some(s_nodes) = value.get("nodes") {
+                let nodes = if let Some(s_nodes) = scene.get("nodes") {
                     let s_nodes = s_nodes.as_array().unwrap();
 
                     let mut nodes = Vec::with_capacity(s_nodes.len());
@@ -79,7 +116,7 @@ impl Importer for Gltf {
                     None
                 };
 
-                tmp_scenes.push(GltfScene { 
+                tmp_scenes.push(Scene { 
                     name,
                     nodes
                 });
@@ -169,7 +206,7 @@ impl Importer for Gltf {
 
                 let name = if let Some(nm) = value.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
 
-                nodes.push(GltfNode {
+                nodes.push(Node {
                     camera,
                     children,
                     skin,
@@ -187,9 +224,142 @@ impl Importer for Gltf {
         } else {
             None
         };
+        
+        let materials = if let Some(s_materials) = json.get("materials") {
+            let s_materials = s_materials.as_array().unwrap();
+
+            let mut materials = Vec::with_capacity(s_materials.len());
+            for material in s_materials {
+                let name = if let Some(nm) = material.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+
+                let pbr_metallic_roughness = if let Some(pbr) = material.get("pbrMetallicRoughness") {
+                    let base_color_factor = if let Some(bcf) = pbr.get("baseColorFactor") {
+                        crate::Vec4(bcf[0].as_f64().unwrap() as f32, bcf[1].as_f64().unwrap() as f32, bcf[2].as_f64().unwrap() as f32, bcf[3].as_f64().unwrap() as f32)
+                    } else {
+                        crate::Vec4(1.0, 1.0, 1.0, 1.0)
+                    };
+
+                    let base_color_texture = if let Some(bct) = pbr.get("baseColorTexture") {
+                        Some(get_texture_info(bct))
+                    } else {
+                        None
+                    };
+                    
+                    let metallic_factor = if let Some(mf) = pbr.get("metallicFactor") {
+                        mf.as_f64().unwrap() as f32
+                    } else {
+                        1.0
+                    };
+
+                    let roughness_factor = if let Some(rf) = pbr.get("roughnessFactor") {
+                        rf.as_f64().unwrap() as f32
+                    } else {
+                        1.0
+                    };
+
+                    let metallic_roughness_texture = if let Some(mft) = pbr.get("metallicRoughnessTexture") {
+                        Some(get_texture_info(mft))
+                    } else {
+                        None
+                    };
+
+                    Some(PbrMetallicRoughness {
+                        base_color_factor,
+                        base_color_texture,
+                        metallic_factor,
+                        roughness_factor,
+                        metallic_roughness_texture
+                    })
+                } else {
+                    None
+                };
+
+                let normal_texture = if let Some(nt) = material.get("normalTexture") {
+                    Some(get_texture_info(nt))
+                } else {
+                    None
+                };
+
+                let occlusion_texture = if let Some(ot) = material.get("occlusionTexture") {
+                    Some(get_texture_info(ot))
+                } else {
+                    None
+                };
+
+                let emissive_texture = if let Some(et) = material.get("emissiveTexture") {
+                    Some(get_texture_info(et))
+                } else {
+                    None
+                };
+
+                let emissive_factor = if let Some(ef) = material.get("emissiveFactor") {
+                    let ef = ef.as_array().unwrap();
+
+                    crate::Vec3(ef[0].as_f64().unwrap() as f32, ef[1].as_f64().unwrap() as f32, ef[2].as_f64().unwrap() as f32)
+                } else {
+                    crate::Vec3(0.0, 0.0, 0.0)
+                };
+                
+                let alpha_mode = if let Some(am) = material.get("alphaMode") {
+                    let am = am.as_str().unwrap();
+
+                    match am {
+                        "OPAQUE" => AlphaMode::Opaque,
+                        "MASK" => AlphaMode::Mask,
+                        "BLEND" => AlphaMode::Blend,
+                        _ => AlphaMode::Opaque
+                    }
+                } else {
+                    AlphaMode::Opaque
+                };
+
+                let alpha_cutoff = if let Some(ac) = material.get("alphaCutoff") {
+                    ac.as_f64().unwrap() as f32
+                } else {
+                    0.5
+                };
+
+                let double_sided = if let Some(dc) = material.get("doubleSided") {
+                    dc.as_bool().unwrap()
+                } else {
+                    false
+                };
+
+                materials.push(Material {
+                    name,
+                    pbr_metallic_roughness,
+                    normal_texture,
+                    occlusion_texture,
+                    emissive_texture,
+                    emissive_factor,
+                    alpha_mode,
+                    alpha_cutoff,
+                    double_sided,
+                });
+            }
+
+            Some(materials)
+        } else {
+            None
+        };
 
         let mut buffers = Vec::new();
 
-        Ok(Gltf { asset, scene, scenes, nodes, buffers })
+        Ok(Gltf { asset, scene, scenes, nodes, materials, buffers })
     }
+}
+
+fn get_texture_info(value: &Value) -> TextureInfo {
+    let index = value["index"].as_i64().unwrap() as i32;
+    let tex_coord = if let Some(tc) = value.get("texCoord") { tc.as_i64().unwrap() as i32 } else { 0 };
+
+    let scalar = if let Some(scale) = value.get("scale") { 
+        scale.as_f64().unwrap() as f32
+    } else if let Some(strength) = value.get("strength") {
+        strength.as_f64().unwrap() as f32
+    } else {
+        1.0
+    };
+
+    TextureInfo { index, tex_coord, scalar }
 }
