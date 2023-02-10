@@ -209,6 +209,13 @@ pub struct Sampler {
 }
 
 #[derive(Debug)]
+pub struct Buffer {
+    pub uri:         Option<String>,
+    pub byte_length: i32,
+    pub name:        Option<String>
+}
+
+#[derive(Debug)]
 pub struct Gltf {
     pub asset:        Asset,
     pub scene:        Option<i32>,
@@ -222,7 +229,7 @@ pub struct Gltf {
     pub buffer_views: Option<Vec<BufferView>>,
     pub samplers:     Option<Vec<Sampler>>,
 
-    pub buffers:      Vec<Vec<u8>>
+    pub buffers:      Option<Vec<Buffer>>
 }
 
 impl Importer for Gltf {
@@ -240,13 +247,21 @@ impl Importer for Gltf {
         };
 
         // Get the default scene, if any.
-        let scene = if let Some(sc) = json.get("scene") { Some(sc.as_i64().unwrap() as i32) } else { None };
+        let scene = if let Some(sc) = json.get("scene") {
+            Some(sc.as_i64().unwrap() as i32)
+        } else {
+            None
+        };
 
         // Get the scenes information.
         let scenes = if let Some(s_scenes) = json.get("scenes") {
             let mut tmp_scenes = Vec::new();
             for scene in s_scenes.as_array().unwrap().into_iter() {
-                let name = if let Some(nm) = scene.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+                let name = if let Some(nm) = scene.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
                 
                 let nodes = if let Some(s_nodes) = scene.get("nodes") {
                     let s_nodes = s_nodes.as_array().unwrap();
@@ -278,7 +293,11 @@ impl Importer for Gltf {
 
             let mut nodes = Vec::with_capacity(s_nodes.len());
             for value in s_nodes {
-                let camera = if let Some(cm) = value.get("camera") { Some(cm.as_i64().unwrap() as i32 ) } else { None };
+                let camera = if let Some(cm) = value.get("camera") {
+                    Some(cm.as_i64().unwrap() as i32 )
+                } else {
+                    None
+                };
                 
                 let children = if let Some(ch) = value.get("children") {
                     let ch = ch.as_array().unwrap();
@@ -293,7 +312,11 @@ impl Importer for Gltf {
                     None
                 };
 
-                let skin = if let Some(sk) = value.get("skin") { Some(sk.as_i64().unwrap() as i32) } else { None };
+                let skin = if let Some(sk) = value.get("skin") {
+                    Some(sk.as_i64().unwrap() as i32)
+                } else {
+                    None
+                };
 
                 let matrix = if let Some(mat) = value.get("matrix") {
                     let mat = mat.as_array().unwrap();
@@ -310,7 +333,11 @@ impl Importer for Gltf {
                             )
                 };
 
-                let mesh = if let Some(msh) = value.get("mesh") { Some(msh.as_i64().unwrap() as i32) } else { None };
+                let mesh = if let Some(msh) = value.get("mesh") {
+                    Some(msh.as_i64().unwrap() as i32)
+                } else {
+                    None
+                };
 
                 let rotation = if let Some(rot) = value.get("rotation") {
                     let rot = rot.as_array().unwrap();
@@ -349,7 +376,11 @@ impl Importer for Gltf {
                     None
                 };
 
-                let name = if let Some(nm) = value.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+                let name = if let Some(nm) = value.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
 
                 nodes.push(Node {
                     camera,
@@ -375,7 +406,11 @@ impl Importer for Gltf {
 
             let mut materials = Vec::with_capacity(s_materials.len());
             for material in s_materials {
-                let name = if let Some(nm) = material.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+                let name = if let Some(nm) = material.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
 
                 let pbr_metallic_roughness = if let Some(pbr) = material.get("pbrMetallicRoughness") {
                     let base_color_factor = if let Some(bcf) = pbr.get("baseColorFactor") {
@@ -552,7 +587,11 @@ impl Importer for Gltf {
                     None
                 };
 
-                let name = if let Some(nm) = mesh.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+                let name = if let Some(nm) = mesh.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
 
                 meshes.push(Mesh {
                     primitives,
@@ -583,7 +622,11 @@ impl Importer for Gltf {
                     None
                 };
 
-                let name = if let Some(nm) = texture.get("name") { Some(nm.as_str().unwrap().to_string()) } else { None };
+                let name = if let Some(nm) = texture.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None 
+                };
 
                 textures.push(Texture {
                     sampler,
@@ -887,7 +930,36 @@ impl Importer for Gltf {
             None
         };
 
-        let mut buffers = Vec::new();
+        let buffers = if let Some(s_buffers) = json.get("buffers") {
+            let s_buffers = s_buffers.as_array().unwrap();
+
+            let mut buffers = Vec::with_capacity(s_buffers.len());
+            for buffer in s_buffers {
+                let uri = if let Some(ui) = buffer.get("uri") {
+                    Some(ui.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                let byte_length = buffer["byteLength"].as_i64().unwrap() as i32;
+
+                let name = if let Some(nm) = buffer.get("name") {
+                    Some(nm.as_str().unwrap().to_string())
+                } else {
+                    None
+                };
+
+                buffers.push(Buffer {
+                    uri,
+                    byte_length,
+                    name
+                });
+            }
+
+            Some(buffers)
+        } else {
+            None
+        };
 
         Ok(Gltf {
             asset,
