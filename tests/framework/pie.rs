@@ -31,6 +31,7 @@ impl GraphicsDevice {
         unsafe { 
             let mut vao = 0;
             gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
             Self {
                 vao
             }
@@ -153,18 +154,10 @@ impl GraphicsDevice {
         }
     }
 
-    pub fn set_vertex_buffer(buffer: GraphicsBuffer, stride: u32, layout: InputLayout) {
+    pub fn set_vertex_buffer(&self, buffer: &GraphicsBuffer, stride: u32, layout: &InputLayout) {
         unsafe {
-            let gl_type = match buffer.buffer_type {
-                BufferType::VertexBuffer => gl::ARRAY_BUFFER,
-                BufferType::IndexBuffer => gl::ELEMENT_ARRAY_BUFFER,
-                BufferType::UniformBuffer => gl::UNIFORM_BUFFER,
-            };
-
-            gl::BindBuffer(gl_type, buffer.buffer);
-
             let mut location = 0;
-            for description in layout.descriptions {
+            for description in &layout.descriptions {
                 gl::EnableVertexAttribArray(location);
 
                 match description.format {
@@ -177,10 +170,18 @@ impl GraphicsDevice {
 
                 location += 1;
             }
+
+            let gl_type = match buffer.buffer_type {
+                BufferType::VertexBuffer => gl::ARRAY_BUFFER,
+                BufferType::IndexBuffer => gl::ELEMENT_ARRAY_BUFFER,
+                BufferType::UniformBuffer => gl::UNIFORM_BUFFER,
+            };
+
+            gl::BindBuffer(gl_type, buffer.buffer);
         }
     }
 
-    pub fn set_index_buffer(buffer: GraphicsBuffer) {
+    pub fn set_index_buffer(&self, buffer: &GraphicsBuffer) {
         unsafe {
             let gl_type = match buffer.buffer_type {
                 BufferType::VertexBuffer => gl::ARRAY_BUFFER,
@@ -192,7 +193,7 @@ impl GraphicsDevice {
         }
     }
 
-    pub fn draw_indexed(index_count: u32) {
+    pub fn draw_indexed(&self, index_count: u32) {
         unsafe {
             gl::DrawElements(gl::TRIANGLES, index_count as i32, gl::UNSIGNED_INT, 0 as *const _);
         }
@@ -240,15 +241,6 @@ pub enum Format {
 pub struct InputLayoutDescription {
     pub format: Format,
     pub offset:  u32
-}
-
-impl InputLayoutDescription {
-    pub fn new(format: Format, offset: u32) -> Self {
-        Self {
-            format,
-            offset
-        }
-    }
 }
 
 pub struct InputLayout {

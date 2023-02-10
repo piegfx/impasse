@@ -12,17 +12,21 @@ impl Scene {
 }
 
 #[derive(Debug)]
-pub struct Vec2(f32, f32);
+#[repr(C)]
+pub struct Vec2(pub f32, pub f32);
 
 #[derive(Debug)]
-pub struct Vec3(f32, f32, f32);
+#[repr(C)]
+pub struct Vec3(pub f32, pub f32, pub f32);
 
 #[derive(Debug)]
-pub struct Vec4(f32, f32, f32, f32);
+#[repr(C)]
+pub struct Vec4(pub f32, pub f32, pub f32, pub f32);
 
 #[derive(Debug)]
-pub struct Mat4(f32, f32, f32, f32,
-                f32, f32, f32, f32,
-                f32, f32, f32, f32,
-                f32, f32, f32, f32
+#[repr(C)]
+pub struct Mat4(pub f32, pub f32, pub f32, pub f32,
+                pub f32, pub f32, pub f32, pub f32,
+                pub f32, pub f32, pub f32, pub f32,
+                pub f32, pub f32, pub f32, pub f32
             );

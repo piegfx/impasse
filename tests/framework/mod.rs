@@ -1,3 +1,5 @@
+use impasse::Vec3;
+
 use self::{window::Window, graphics::Graphics};
 
 pub mod window;
@@ -103,15 +105,6 @@ impl Color {
         Self::from_rgba_f32(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0)
     }
 }
-
-#[repr(C)]
-pub struct Vec2(pub f32, pub f32);
-
-#[repr(C)]
-pub struct Vec3(pub f32, pub f32, pub f32);
-
-#[repr(C)]
-pub struct Vec4(pub f32, pub f32, pub f32, pub f32);
 
 #[repr(C)]
 pub struct VertexPositionColor {
