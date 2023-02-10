@@ -9,3 +9,7 @@ edition = "2021"
 serde_json = "1.0.93"
 # TODO: MOve binary_reader into its own utils lib so i don't have to reference mixr
 #mixr = { path = "../mixr" }
+
+[dev-dependencies]
+sdl2 = "0.35.2"
+gl = "0.14.0"
