@@ -10,7 +10,7 @@ impl framework::Demo for GltfDemo {
     }
 
     fn update(&mut self, framework: &mut framework::Framework) {
-
+        framework.update();
     }
 
     fn draw(&mut self, framework: &mut framework::Framework) {

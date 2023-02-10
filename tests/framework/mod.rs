@@ -1,7 +1,8 @@
-use self::{window::Window, pie::GraphicsDevice};
+use self::{window::Window, graphics::Graphics};
 
 pub mod window;
 pub mod pie;
+pub mod graphics;
 
 pub trait Demo {
     fn init(&mut self, framework: &mut Framework);
@@ -11,14 +12,14 @@ pub trait Demo {
 
 pub struct Framework {
     pub window: Window,
-    pub graphics: GraphicsDevice,
+    pub graphics: Graphics,
     pub clear_color: Color
 }
 
 impl Framework {
     pub fn new() -> Self {
         let window = Window::new(Size::new(1280, 720), "Test");
-        let graphics = GraphicsDevice {};
+        let graphics = Graphics::new();
         let clear_color = Color::from_rgba_f32(0.0, 0.0, 0.0, 1.0);
 
         Self {
@@ -33,7 +34,7 @@ impl Framework {
     }
 
     pub fn draw(&mut self) {
-        self.graphics.clear(self.clear_color);
+        self.graphics.device.clear(self.clear_color);
     }
 }
 
@@ -101,4 +102,19 @@ impl Color {
     pub fn from_rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self::from_rgba_f32(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0)
     }
+}
+
+#[repr(C)]
+pub struct Vec2(pub f32, pub f32);
+
+#[repr(C)]
+pub struct Vec3(pub f32, pub f32, pub f32);
+
+#[repr(C)]
+pub struct Vec4(pub f32, pub f32, pub f32, pub f32);
+
+#[repr(C)]
+pub struct VertexPositionColor {
+    pub position: Vec3,
+    pub color:    Color
 }
