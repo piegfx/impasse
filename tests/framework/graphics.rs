@@ -1,4 +1,4 @@
-use super::pie::GraphicsDevice;
+use super::pie::{GraphicsDevice, GraphicsBuffer};
 
 pub struct Graphics {
     pub device: GraphicsDevice
@@ -12,4 +12,9 @@ impl Graphics {
             device
         }
     }
+}
+
+pub struct Renderable {
+    pub vertex_buffer: GraphicsBuffer,
+    pub index_buffer:  GraphicsBuffer,
 }

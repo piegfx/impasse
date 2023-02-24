@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+base64 = "0.21.0"
 serde_json = "1.0.93"
 # TODO: MOve binary_reader into its own utils lib so i don't have to reference mixr
 #mixr = { path = "../mixr" }

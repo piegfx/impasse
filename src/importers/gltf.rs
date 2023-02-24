@@ -1,6 +1,9 @@
-use std::{io, collections::HashMap};
+use std::{io, collections::HashMap, path::Path};
 
+use base64::Engine;
 use serde_json::Value;
+
+use crate::binary_reader::BinaryReader;
 
 use super::Importer;
 
@@ -208,11 +211,16 @@ pub struct Sampler {
     pub name:       Option<String>
 }
 
-#[derive(Debug)]
+/*#[derive(Debug)]
 pub struct Buffer {
     pub uri:         Option<String>,
     pub byte_length: i32,
     pub name:        Option<String>
+}*/
+
+#[derive(Debug)]
+pub struct Buffer {
+    pub data: Vec<u8>
 }
 
 #[derive(Debug)]
@@ -233,9 +241,25 @@ pub struct Gltf {
 }
 
 impl Importer for Gltf {
-    fn import(data: &[u8]) -> Result<Self, io::Error> {
-        // TODO: Binary GLTF files.
-        let json: Value = serde_json::from_slice(data)?;
+    fn import(path: &str) -> Result<Self, io::Error> {
+        let data = std::fs::read(path)?;
+
+        let mut reader = BinaryReader::new(&data);
+        // It's a GLB!
+        let (json, is_glb) = if reader.read_u32() == 0x46546C67 {
+            reader.read_u32(); // version
+            reader.read_u32(); // length
+
+            let json_length = reader.read_u32();
+
+            if reader.read_u32() != 0x4E4F534A {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "Expected JSON, did not find JSON."));
+            }
+
+            (serde_json::from_slice::<Value>(reader.read_bytes(json_length as usize))?, true)
+        } else {
+            (serde_json::from_slice(&data)?, false)
+        };
 
         // Get the asset information - no need to check here, a GLTF file is required to have "asset".
         let s_asset = &json["asset"];
@@ -930,29 +954,56 @@ impl Importer for Gltf {
             None
         };
 
+        let directory = Path::new(path).parent().unwrap();
+
         let buffers = if let Some(s_buffers) = json.get("buffers") {
             let s_buffers = s_buffers.as_array().unwrap();
 
             let mut buffers = Vec::with_capacity(s_buffers.len());
             for buffer in s_buffers {
-                let uri = if let Some(ui) = buffer.get("uri") {
-                    Some(ui.as_str().unwrap().to_string())
-                } else {
-                    None
-                };
+                let data = if let Some(ui) = buffer.get("uri") {
+                    let uri = ui.as_str().unwrap();
+                    
+                    // This is an embedded data type.
+                    if uri.starts_with("data:") {
+                        // Finds the end of the "application/xyz" string.
+                        // The glTF spec says that this *must* be present.
+                        let location = uri.find(';').unwrap() + 1;
+                        let (is_base64, other_location) = match uri.find(',') {
+                            Some(loc) => {
+                                if &uri[location..loc] == "base64" {
+                                    (true, loc + 1)
+                                } else {
+                                    (false, 0)
+                                }
+                            },
+                            None => (false, 0),
+                        };
 
-                let byte_length = buffer["byteLength"].as_i64().unwrap() as i32;
-
-                let name = if let Some(nm) = buffer.get("name") {
-                    Some(nm.as_str().unwrap().to_string())
+                        if is_base64 {
+                            base64::engine::general_purpose::STANDARD.decode(&uri[other_location..]).unwrap()
+                        } else {
+                            uri[other_location..].as_bytes().to_vec()
+                        }
+                    } else {
+                        std::fs::read(directory.join(uri))?
+                    }
                 } else {
-                    None
+                    if !is_glb {
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, "No buffer URI was provided, but the file is not a GLB file."));
+                    }
+
+                    let bin_length = reader.read_u32();
+                    
+                    if reader.read_u32() != 0x004E4942 {
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, "Expected BIN, did not find BIN."));
+                    }
+
+                    reader.read_bytes(bin_length as usize).to_vec()
                 };
 
                 buffers.push(Buffer {
-                    uri,
-                    byte_length,
-                    name
+                    data
                 });
             }
 
