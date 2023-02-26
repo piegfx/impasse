@@ -2,11 +2,12 @@ use std::{io, fs, path::Path};
 
 use importers::Importer;
 
+use crate::binary_reader::BinaryReader;
+
 pub mod importers;
-
 mod binary_reader;
+mod impassec;
 
-#[repr(C)]
 pub struct Mesh {
     pub vertices: Vec<VertexPositionColorTextureNormalTangentBitangent>,
     pub indices:  Vec<u32>
@@ -39,7 +40,8 @@ impl Scene {
                     let accessor = &accessors[*index as usize];
                     let view = &buffer_views[accessor.buffer_view.unwrap() as usize];
                     let data = &buffers[view.buffer as usize].data[view.byte_offset as usize..view.byte_offset as usize + view.byte_length as usize];
-                    
+                    let reader = BinaryReader::new(data);
+
                     let name = name.to_lowercase();
                     let name = name.split('_').collect::<Vec<&str>>();
 
@@ -47,11 +49,11 @@ impl Scene {
                         for _ in 0..(accessor.count as usize - vertices.len()) {
                             vertices.push(VertexPositionColorTextureNormalTangentBitangent {
                                 position: Vec3(0.0, 0.0, 0.0),
-                                color: None,
-                                tex_coord: None,
-                                normal: None,
-                                tangent: None,
-                                bitangent: None
+                                color: Vec4(0.0, 0.0, 0.0, 0.0),
+                                tex_coord: Vec2(0.0, 0.0),
+                                normal: Vec3(0.0, 0.0, 0.0),
+                                tangent: Vec3(0.0, 0.0, 0.0),
+                                bitangent: Vec3(0.0, 0.0, 0.0)
                             });
                         }
                     } else if (accessor.count as usize) < vertices.len() {
@@ -73,21 +75,22 @@ impl Scene {
                             let data = reinterpret_slice::<u8, f32>(data);
                             let mut vertex = 0;
                             for i in (0..data.len()).step_by(3) {
-                                vertices[vertex].normal = Some(Vec3(data[i + 0], data[i + 1], data[i + 2]));
+                                vertices[vertex].normal = Vec3(data[i + 0], data[i + 1], data[i + 2]);
                                 vertex += 1;
                             }
                         }
 
                         "texcoord" => {
-                            let data = reinterpret_slice::<u8, f32>(data);
+                            let data = reinterpret_slice::<u8, f64>(data);
                             let mut vertex = 0;
                             for i in (0..data.len()).step_by(2) {
-                                vertices[vertex].tex_coord = Some(Vec2(data[i + 0], data[i + 1]));
+                                vertices[vertex].tex_coord = Vec2(data[i + 0] as f32, data[i + 1] as f32);
                                 vertex += 1;
                             }
                         }
 
-                        _ => return Err(io::Error::new(io::ErrorKind::Unsupported, format!("Unsupported attribute \"{}\"", name[0])))
+                        //_ => return Err(io::Error::new(io::ErrorKind::Unsupported, format!("Unsupported attribute \"{}\"", name[0])))
+                        _ => {} // Ignore
                     }
                 }
                 
@@ -141,11 +144,11 @@ pub struct Mat4(pub f32, pub f32, pub f32, pub f32,
 #[repr(C)]
 pub struct VertexPositionColorTextureNormalTangentBitangent {
     pub position:  Vec3,
-    pub color:     Option<Vec4>,
-    pub tex_coord: Option<Vec2>,
-    pub normal:    Option<Vec3>,
-    pub tangent:   Option<Vec3>,
-    pub bitangent: Option<Vec3>
+    pub color:     Vec4,
+    pub tex_coord: Vec2,
+    pub normal:    Vec3,
+    pub tangent:   Vec3,
+    pub bitangent: Vec3
 }
 
 fn reinterpret_slice<TFrom, TTo>(value: &[TFrom]) -> &[TTo] {

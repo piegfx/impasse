@@ -16,7 +16,7 @@ impl Window {
 
         let gl_attr = video.gl_attr();
         gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-        gl_attr.set_context_version(3, 3);
+        gl_attr.set_context_version(4, 3);
 
         let window = video.window(title, size.width as u32, size.height as u32)
             .opengl()

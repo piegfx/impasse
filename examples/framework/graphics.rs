@@ -1,7 +1,8 @@
-use super::pie::{GraphicsDevice, GraphicsBuffer};
+use super::{pie::{GraphicsDevice, GraphicsBuffer}, renderer::Renderer};
 
 pub struct Graphics {
-    pub device: GraphicsDevice
+    pub device: GraphicsDevice,
+    pub renderer: Renderer
 }
 
 impl Graphics {
@@ -9,7 +10,8 @@ impl Graphics {
         let device = GraphicsDevice::new();
 
         Self {
-            device
+            device,
+            renderer: Renderer::new()
         }
     }
 }

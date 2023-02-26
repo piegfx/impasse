@@ -5,6 +5,7 @@ use self::{window::Window, graphics::Graphics};
 pub mod window;
 pub mod pie;
 pub mod graphics;
+pub mod renderer;
 
 pub trait Demo {
     fn init(&mut self, framework: &mut Framework);
