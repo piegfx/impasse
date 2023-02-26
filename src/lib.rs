@@ -42,16 +42,70 @@ impl Scene {
                     
                     let name = name.to_lowercase();
                     let name = name.split('_').collect::<Vec<&str>>();
+
+                    if (accessor.count as usize) > vertices.len() {
+                        for _ in 0..(accessor.count as usize - vertices.len()) {
+                            vertices.push(VertexPositionColorTextureNormalTangentBitangent {
+                                position: Vec3(0.0, 0.0, 0.0),
+                                color: None,
+                                tex_coord: None,
+                                normal: None,
+                                tangent: None,
+                                bitangent: None
+                            });
+                        }
+                    } else if (accessor.count as usize) < vertices.len() {
+                        // TODO: Don't panic - these situations (if they can happen) should be handled.
+                        panic!("AAAAAAAAAAAAA IT'S NOT SUPPOSED TO BE LIKE THIS YET");
+                    }
                     
                     match name[0].to_lowercase().as_str() {
                         "position" => {
+                            let data = reinterpret_slice::<u8, f32>(data);
+                            let mut vertex = 0;
+                            for i in (0..data.len()).step_by(3) {
+                                vertices[vertex].position = Vec3(data[i + 0], data[i + 1], data[i + 2]);
+                                vertex += 1;
+                            }
+                        }
 
+                        "normal" => {
+                            let data = reinterpret_slice::<u8, f32>(data);
+                            let mut vertex = 0;
+                            for i in (0..data.len()).step_by(3) {
+                                vertices[vertex].normal = Some(Vec3(data[i + 0], data[i + 1], data[i + 2]));
+                                vertex += 1;
+                            }
+                        }
+
+                        "texcoord" => {
+                            let data = reinterpret_slice::<u8, f32>(data);
+                            let mut vertex = 0;
+                            for i in (0..data.len()).step_by(2) {
+                                vertices[vertex].tex_coord = Some(Vec2(data[i + 0], data[i + 1]));
+                                vertex += 1;
+                            }
                         }
 
                         _ => return Err(io::Error::new(io::ErrorKind::Unsupported, format!("Unsupported attribute \"{}\"", name[0])))
                     }
                 }
+                
+                if let Some(prim_indices) = primitive.indices {
+                    let accessor = &accessors[prim_indices as usize];
+                    let view = &buffer_views[accessor.buffer_view.unwrap() as usize];
+                    let data = &buffers[view.buffer as usize].data[view.byte_offset as usize..view.byte_offset as usize + view.byte_length as usize];
+                    let data = reinterpret_slice::<u8, u16>(data);
+                    for value in data {
+                        indices.push(*value as u32);
+                    }
+                }
             }
+
+            println!("{}", vertices.len());
+            println!("{:?}", vertices);
+            println!("{}", indices.len());
+            println!("{:?}", indices);
 
             meshes.push(Mesh {
                 vertices,
