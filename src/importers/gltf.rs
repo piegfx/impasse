@@ -345,16 +345,20 @@ impl Importer for Gltf {
                 let matrix = if let Some(mat) = value.get("matrix") {
                     let mat = mat.as_array().unwrap();
 
-                    crate::Mat4(mat[0].as_f64().unwrap() as f32, mat[1].as_f64().unwrap() as f32, mat[2].as_f64().unwrap() as f32, mat[3].as_f64().unwrap() as f32,
-                                mat[4].as_f64().unwrap() as f32, mat[5].as_f64().unwrap() as f32, mat[6].as_f64().unwrap() as f32, mat[7].as_f64().unwrap() as f32,
-                                mat[8].as_f64().unwrap() as f32, mat[9].as_f64().unwrap() as f32, mat[10].as_f64().unwrap() as f32, mat[11].as_f64().unwrap() as f32,
-                                mat[12].as_f64().unwrap() as f32, mat[13].as_f64().unwrap() as f32, mat[14].as_f64().unwrap() as f32, mat[15].as_f64().unwrap() as f32)
+                    crate::Mat4 {
+                        m11: mat[0].as_f64().unwrap() as f32, m12: mat[1].as_f64().unwrap() as f32, m13: mat[2].as_f64().unwrap() as f32, m14: mat[3].as_f64().unwrap() as f32,
+                        m21: mat[4].as_f64().unwrap() as f32, m22: mat[5].as_f64().unwrap() as f32, m23: mat[6].as_f64().unwrap() as f32, m24: mat[7].as_f64().unwrap() as f32,
+                        m31: mat[8].as_f64().unwrap() as f32, m32: mat[9].as_f64().unwrap() as f32, m33: mat[10].as_f64().unwrap() as f32, m34: mat[11].as_f64().unwrap() as f32,
+                        m41: mat[12].as_f64().unwrap() as f32, m42: mat[13].as_f64().unwrap() as f32, m43: mat[14].as_f64().unwrap() as f32, m44: mat[15].as_f64().unwrap() as f32 
+                    }
                 } else {
-                    crate::Mat4(1.0, 0.0, 0.0, 0.0,
-                                0.0, 1.0, 0.0, 0.0,
-                                0.0, 0.0, 1.0, 0.0,
-                                0.0, 0.0, 0.0, 1.0
-                            )
+                    // Return an identity matrix.
+                    crate::Mat4 {
+                        m11: 1.0, m12: 0.0, m13: 0.0, m14: 0.0,
+                        m21: 0.0, m22: 1.0, m23: 0.0, m24: 0.0,
+                        m31: 0.0, m32: 0.0, m33: 1.0, m34: 0.0,
+                        m41: 0.0, m42: 0.0, m43: 0.0, m44: 1.0
+                    }
                 };
 
                 let mesh = if let Some(msh) = value.get("mesh") {
@@ -366,25 +370,25 @@ impl Importer for Gltf {
                 let rotation = if let Some(rot) = value.get("rotation") {
                     let rot = rot.as_array().unwrap();
 
-                    crate::Vec4(rot[0].as_f64().unwrap() as f32, rot[1].as_f64().unwrap() as f32, rot[2].as_f64().unwrap() as f32, rot[3].as_f64().unwrap() as f32)
+                    crate::Vec4 { x: rot[0].as_f64().unwrap() as f32, y: rot[1].as_f64().unwrap() as f32, z: rot[2].as_f64().unwrap() as f32, w: rot[3].as_f64().unwrap() as f32 }
                 } else {
-                    crate::Vec4(0.0, 0.0, 0.0, 1.0)
+                    crate::Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
                 };
 
                 let scale = if let Some(sc) = value.get("scale") {
                     let sc = sc.as_array().unwrap();
 
-                    crate::Vec3(sc[0].as_f64().unwrap() as f32, sc[1].as_f64().unwrap() as f32, sc[2].as_f64().unwrap() as f32)
+                    crate::Vec3 { x: sc[0].as_f64().unwrap() as f32, y: sc[1].as_f64().unwrap() as f32, z: sc[2].as_f64().unwrap() as f32 }
                 } else {
-                    crate::Vec3(1.0, 1.0, 1.0)
+                    crate::Vec3 { x: 1.0, y: 1.0, z: 1.0 }
                 };
 
                 let translation = if let Some(tr) = value.get("translation") {
                     let tr = tr.as_array().unwrap();
 
-                    crate::Vec3(tr[0].as_f64().unwrap() as f32, tr[1].as_f64().unwrap() as f32, tr[2].as_f64().unwrap() as f32)
+                    crate::Vec3 { x: tr[0].as_f64().unwrap() as f32, y: tr[1].as_f64().unwrap() as f32, z: tr[2].as_f64().unwrap() as f32 }
                 } else {
-                    crate::Vec3(0.0, 0.0, 0.0)
+                    crate::Vec3 { x: 0.0, y: 0.0, z: 0.0 }
                 };
 
                 let weights = if let Some(s_weights) = value.get("weights") {
@@ -438,9 +442,9 @@ impl Importer for Gltf {
 
                 let pbr_metallic_roughness = if let Some(pbr) = material.get("pbrMetallicRoughness") {
                     let base_color_factor = if let Some(bcf) = pbr.get("baseColorFactor") {
-                        crate::Vec4(bcf[0].as_f64().unwrap() as f32, bcf[1].as_f64().unwrap() as f32, bcf[2].as_f64().unwrap() as f32, bcf[3].as_f64().unwrap() as f32)
+                        crate::Vec4 { x: bcf[0].as_f64().unwrap() as f32, y: bcf[1].as_f64().unwrap() as f32, z: bcf[2].as_f64().unwrap() as f32, w: bcf[3].as_f64().unwrap() as f32 }
                     } else {
-                        crate::Vec4(1.0, 1.0, 1.0, 1.0)
+                        crate::Vec4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 }
                     };
 
                     let base_color_texture = if let Some(bct) = pbr.get("baseColorTexture") {
@@ -499,9 +503,9 @@ impl Importer for Gltf {
                 let emissive_factor = if let Some(ef) = material.get("emissiveFactor") {
                     let ef = ef.as_array().unwrap();
 
-                    crate::Vec3(ef[0].as_f64().unwrap() as f32, ef[1].as_f64().unwrap() as f32, ef[2].as_f64().unwrap() as f32)
+                    crate::Vec3 { x: ef[0].as_f64().unwrap() as f32, y: ef[1].as_f64().unwrap() as f32, z: ef[2].as_f64().unwrap() as f32 }
                 } else {
-                    crate::Vec3(0.0, 0.0, 0.0)
+                    crate::Vec3 { x: 0.0, y: 0.0, z: 0.0 }
                 };
                 
                 let alpha_mode = if let Some(am) = material.get("alphaMode") {

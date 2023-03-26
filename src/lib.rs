@@ -107,12 +107,12 @@ impl Scene {
                     if (accessor.count as usize) > vertices.len() {
                         for _ in 0..(accessor.count as usize - vertices.len()) {
                             vertices.push(VertexPositionColorTextureNormalTangentBitangent {
-                                position: Vec3(0.0, 0.0, 0.0),
-                                color: Vec4(0.0, 0.0, 0.0, 0.0),
-                                tex_coord: Vec2(0.0, 0.0),
-                                normal: Vec3(0.0, 0.0, 0.0),
-                                tangent: Vec3(0.0, 0.0, 0.0),
-                                bitangent: Vec3(0.0, 0.0, 0.0)
+                                position: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+                                color: Vec4 { x: 0.0, y: 0.0, z: 0.0, w: 0.0 },
+                                tex_coord: Vec2 { x: 0.0, y: 0.0 },
+                                normal: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+                                tangent: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
+                                bitangent: Vec3 { x: 0.0, y: 0.0, z: 0.0 }
                             });
                         }
                     } else if (accessor.count as usize) < vertices.len() {
@@ -125,7 +125,7 @@ impl Scene {
                             let data = reinterpret_slice::<u8, f32>(data);
                             let mut vertex = 0;
                             for i in (0..data.len()).step_by(3) {
-                                vertices[vertex].position = Vec3(data[i + 0], data[i + 1], data[i + 2]);
+                                vertices[vertex].position = Vec3 { x: data[i + 0], y: data[i + 1], z: data[i + 2] };
                                 vertex += 1;
                             }
                         }
@@ -134,7 +134,7 @@ impl Scene {
                             let data = reinterpret_slice::<u8, f32>(data);
                             let mut vertex = 0;
                             for i in (0..data.len()).step_by(3) {
-                                vertices[vertex].normal = Vec3(data[i + 0], data[i + 1], data[i + 2]);
+                                vertices[vertex].normal = Vec3 { x: data[i + 0], y: data[i + 1], z: data[i + 2] };
                                 vertex += 1;
                             }
                         }
@@ -143,7 +143,7 @@ impl Scene {
                             let data = reinterpret_slice::<u8, f32>(data);
                             let mut vertex = 0;
                             for i in (0..data.len()).step_by(2) {
-                                vertices[vertex].tex_coord = Vec2(data[i + 0] as f32, data[i + 1] as f32);
+                                vertices[vertex].tex_coord = Vec2 { x: data[i + 0] as f32, y: data[i + 1] as f32 };
                                 vertex += 1;
                             }
                         }
@@ -199,7 +199,7 @@ impl Scene {
 
                     (pbr_mr.base_color_factor, pbr_mr.metallic_factor, pbr_mr.roughness_factor)
                 } else {
-                    (Vec4(1.0, 1.0, 1.0, 1.0), 1.0, 1.0)
+                    (Vec4 { x: 1.0, y: 1.0, z: 1.0, w: 1.0 }, 1.0, 1.0)
                 };
 
                 // TODO: Normal scale and occlusion strength.
@@ -268,23 +268,48 @@ impl Scene {
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct Vec2(pub f32, pub f32);
+pub struct Vec2 {
+    pub x: f32,
+    pub y: f32
+}
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct Vec3(pub f32, pub f32, pub f32);
+pub struct Vec3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32
+}
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct Vec4(pub f32, pub f32, pub f32, pub f32);
+pub struct Vec4 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32
+}
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct Mat4(pub f32, pub f32, pub f32, pub f32,
-                pub f32, pub f32, pub f32, pub f32,
-                pub f32, pub f32, pub f32, pub f32,
-                pub f32, pub f32, pub f32, pub f32
-            );
+pub struct Mat4 {
+    pub m11: f32,
+    pub m12: f32,
+    pub m13: f32,
+    pub m14: f32,
+    pub m21: f32,
+    pub m22: f32,
+    pub m23: f32,
+    pub m24: f32,
+    pub m31: f32,
+    pub m32: f32,
+    pub m33: f32,
+    pub m34: f32,
+    pub m41: f32,
+    pub m42: f32,
+    pub m43: f32,
+    pub m44: f32
+}
 
 #[derive(Debug)]
 #[repr(C)]
