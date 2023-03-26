@@ -38,7 +38,8 @@ pub enum AlphaMode {
 #[derive(Debug)]
 pub struct Mesh {
     pub vertices: Vec<VertexPositionColorTextureNormalTangentBitangent>,
-    pub indices:  Vec<u32>
+    pub indices:  Vec<u32>,
+    pub material: usize
 }
 
 #[derive(Debug)]
@@ -54,9 +55,16 @@ pub struct Material {
 }
 
 #[derive(Debug)]
+pub struct Texture {
+    pub path:   Option<String>,
+    pub data:   Option<Vec<u8>>
+}
+
+#[derive(Debug)]
 pub struct Scene {
     pub meshes:    Vec<Mesh>,
-    pub materials: Vec<Material>
+    pub materials: Vec<Material>,
+    pub textures: Vec<Texture>
 }
 
 impl Scene {
@@ -77,7 +85,16 @@ impl Scene {
             let mut vertices = Vec::new();
             let mut indices = Vec::new();
 
+            let material = mesh.primitives[0].material;
+            if material.is_none() {
+                todo!("No material is defined!");
+            }
+
             for primitive in mesh.primitives.iter() {
+                if primitive.material != material {
+                    todo!("Material is different!")
+                }
+
                 for (name, index) in &primitive.attributes {
                     let accessor = &accessors[*index as usize];
                     let view = &buffer_views[accessor.buffer_view.unwrap() as usize];
@@ -100,7 +117,7 @@ impl Scene {
                         }
                     } else if (accessor.count as usize) < vertices.len() {
                         // TODO: Don't panic - these situations (if they can happen) should be handled.
-                        panic!("AAAAAAAAAAAAA IT'S NOT SUPPOSED TO BE LIKE THIS YET");
+                        todo!("AAAAAAAAAAAAA IT'S NOT SUPPOSED TO BE LIKE THIS YET");
                     }
                     
                     match name[0].to_lowercase().as_str() {
@@ -147,14 +164,10 @@ impl Scene {
                 }
             }
 
-            println!("{}", vertices.len());
-            println!("{:?}", vertices);
-            println!("{}", indices.len());
-            println!("{:?}", indices);
-
             meshes.push(Mesh {
                 vertices,
-                indices
+                indices,
+                material: material.expect("Material is not defined") as usize
             });
         }
 
@@ -230,7 +243,26 @@ impl Scene {
             }
         }
 
-        Ok(Scene { meshes, materials })
+        let mut textures = Vec::new();
+
+        if let Some(gltf_textures) = gltf.textures {
+            let images = gltf.images.expect("A texture is defined, but no images are. This behaviour is not supported.");
+
+            for texture in gltf_textures {
+                let image = &images[texture.source.expect("A texture without a source is not supported.") as usize];
+
+                if let Some(uri) = &image.uri {
+                    textures.push(Texture {
+                        path: Some(uri.to_string()),
+                        data: None,
+                    });
+                } else {
+                    todo!("Embedded images are not yet supported.");
+                }
+            }
+        }
+
+        Ok(Scene { meshes, materials, textures })
     }
 }
 

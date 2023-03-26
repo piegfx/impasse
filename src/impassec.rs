@@ -1,4 +1,4 @@
-use std::ffi::{c_char, CStr};
+use std::ffi::{c_char, CStr, CString};
 
 use crate::*;
 
@@ -7,8 +7,8 @@ pub struct Mesh {
     pub vertices:     *const VertexPositionColorTextureNormalTangentBitangent,
     pub num_vertices: usize,
     pub indices:      *const u32,
-    pub num_indices:  usize
-    
+    pub num_indices:  usize,
+    pub material:     usize
 }
 
 #[repr(C)]
@@ -25,15 +25,24 @@ pub struct Material {
 }
 
 #[repr(C)]
+pub struct Texture {
+    pub path:        *const c_char,
+    pub data:        *const u8,
+    pub data_length: usize
+}
+
+#[repr(C)]
 pub struct Scene {
     pub meshes:        *const *const Mesh,
     pub num_meshes:    usize,
     pub materials:     *const *const Material,
-    pub num_materials: usize
+    pub num_materials: usize,
+    pub textures:      *const *const Texture,
+    pub num_textures:  usize
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn iaLoadScene(path: *const c_char, mut scene: *mut *mut Scene) {
+pub unsafe extern "C" fn iaLoadScene(path: *const c_char, scene: *mut *mut Scene) {
     let rs_scene = crate::Scene::from_gltf(CStr::from_ptr(path).to_str().unwrap()).unwrap();
     let mut meshes = Vec::with_capacity(rs_scene.meshes.len());
     for mesh in rs_scene.meshes {
@@ -42,7 +51,9 @@ pub unsafe extern "C" fn iaLoadScene(path: *const c_char, mut scene: *mut *mut S
             vertices: mesh.vertices.as_ptr(),
 
             num_indices: mesh.indices.len(),
-            indices: mesh.indices.as_ptr()
+            indices: mesh.indices.as_ptr(),
+
+            material: mesh.material
         })) as *const _);
 
         std::mem::forget(mesh.vertices);
@@ -66,16 +77,36 @@ pub unsafe extern "C" fn iaLoadScene(path: *const c_char, mut scene: *mut *mut S
         std::mem::forget(material.textures);
     }
 
+    let mut textures = Vec::with_capacity(rs_scene.textures.len());
+    for texture in rs_scene.textures {
+        let path = CString::new(texture.path.unwrap()).unwrap();
+
+        textures.push(Box::into_raw(Box::new(Texture {
+            path: path.into_raw() as *const _,
+            data: std::ptr::null(),
+            data_length: 0
+        })) as *const _);
+    }
+
     let scene_box = Box::new(Scene {
         meshes: meshes.as_ptr(),
         num_meshes: meshes.len(),
         materials: materials.as_ptr(),
-        num_materials: materials.len()
+        num_materials: materials.len(),
+        textures: textures.as_ptr(),
+        num_textures: textures.len()
     });
 
     std::mem::forget(meshes);
     std::mem::forget(materials);
+    std::mem::forget(textures);
 
     let scene_ptr = Box::into_raw(scene_box);
     *scene = scene_ptr;
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn iaDoneScene(scene: *mut Scene) {
+    let scene = Box::from_raw(scene);
+    
 }

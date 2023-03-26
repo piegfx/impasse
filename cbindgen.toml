@@ -1,0 +1,5 @@
+language = "C"
+
+include_guard = "IMPASSE_H"
+
+cpp_compat = true

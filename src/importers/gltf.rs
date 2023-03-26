@@ -1061,6 +1061,6 @@ fn get_wrap_mode(value: i64) -> TextureWrapMode {
         33071 => TextureWrapMode::ClampToEdge,
         33648 => TextureWrapMode::MirroredRepeat,
         10497 => TextureWrapMode::Repeat,
-        wm => panic!("Invalid wrap mode.")
+        wm => panic!("Invalid wrap mode {wm}.")
     }
 }
