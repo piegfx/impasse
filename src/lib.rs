@@ -7,14 +7,43 @@ use crate::binary_reader::BinaryReader;
 pub mod importers;
 mod binary_reader;
 mod impassec;
+//mod utils;
 
+#[repr(C)]
+#[derive(Debug)]
+pub enum TextureType {
+    Albedo,
+    Normal,
+    Metallic,
+    Roughness,
+    AmbientOcclusion
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct TextureIndex {
+    pub index:  usize,
+    pub t_type: TextureType
+}
+
+#[derive(Debug)]
 pub struct Mesh {
     pub vertices: Vec<VertexPositionColorTextureNormalTangentBitangent>,
     pub indices:  Vec<u32>
 }
 
+#[derive(Debug)]
+pub struct Material {
+    pub albedo_color: Vec4,
+    pub metallic_factor: f32,
+    pub roughness_factor: f32,
+    pub textures:     Vec<TextureIndex>
+}
+
+#[derive(Debug)]
 pub struct Scene {
-    pub meshes: Vec<Mesh>
+    pub meshes:    Vec<Mesh>,
+    pub materials: Vec<Material>
 }
 
 impl Scene {
@@ -81,7 +110,7 @@ impl Scene {
                         }
 
                         "texcoord" => {
-                            let data = reinterpret_slice::<u8, f64>(data);
+                            let data = reinterpret_slice::<u8, f32>(data);
                             let mut vertex = 0;
                             for i in (0..data.len()).step_by(2) {
                                 vertices[vertex].tex_coord = Vec2(data[i + 0] as f32, data[i + 1] as f32);
@@ -116,7 +145,47 @@ impl Scene {
             });
         }
 
-        Ok(Scene { meshes })
+        let mut materials = Vec::new();
+
+        if let Some(gltf_materials) = gltf.materials {
+            for material in gltf_materials {
+                let mut textures = Vec::new();
+
+                let (base, metallic, roughness) = if let Some(pbr_mr) = material.pbr_metallic_roughness {
+                    if let Some(bct) = pbr_mr.base_color_texture {
+                        textures.push(TextureIndex {
+                            index: bct.index as usize,
+                            t_type: TextureType::Albedo
+                        });
+                    }
+
+                    if let Some(mrt) = pbr_mr.metallic_roughness_texture {
+                        textures.push(TextureIndex {
+                            index: mrt.index as usize,
+                            t_type: TextureType::Metallic
+                        });
+
+                        textures.push(TextureIndex {
+                            index: mrt.index as usize,
+                            t_type: TextureType::Roughness
+                        });
+                    }
+
+                    (pbr_mr.base_color_factor, pbr_mr.metallic_factor, pbr_mr.roughness_factor)
+                } else {
+                    (Vec4(1.0, 1.0, 1.0, 1.0), 1.0, 1.0)
+                };
+
+                materials.push(Material {
+                    albedo_color: base,
+                    metallic_factor: metallic,
+                    roughness_factor: roughness,
+                    textures
+                });
+            }
+        }
+
+        Ok(Scene { meshes, materials })
     }
 }
 

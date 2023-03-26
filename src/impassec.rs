@@ -8,6 +8,7 @@ pub struct Mesh {
     pub num_vertices: usize,
     pub indices:      *const u32,
     pub num_indices:  usize
+    
 }
 
 #[repr(C)]
