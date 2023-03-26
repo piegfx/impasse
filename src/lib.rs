@@ -16,7 +16,8 @@ pub enum TextureType {
     Normal,
     Metallic,
     Roughness,
-    AmbientOcclusion
+    AmbientOcclusion,
+    Emissive
 }
 
 #[repr(C)]
@@ -24,6 +25,14 @@ pub enum TextureType {
 pub struct TextureIndex {
     pub index:  usize,
     pub t_type: TextureType
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum AlphaMode {
+    Opaque,
+    Cutoff,
+    Blend
 }
 
 #[derive(Debug)]
@@ -34,10 +43,14 @@ pub struct Mesh {
 
 #[derive(Debug)]
 pub struct Material {
-    pub albedo_color: Vec4,
-    pub metallic_factor: f32,
+    pub albedo_color:     Vec4,
+    pub metallic_factor:  f32,
     pub roughness_factor: f32,
-    pub textures:     Vec<TextureIndex>
+    pub emissive_factor:  Vec3,
+    pub alpha_mode:       AlphaMode,
+    pub alpha_cutoff:     f32,
+    pub double_sided:     bool,
+    pub textures:         Vec<TextureIndex>
 }
 
 #[derive(Debug)]
@@ -176,10 +189,42 @@ impl Scene {
                     (Vec4(1.0, 1.0, 1.0, 1.0), 1.0, 1.0)
                 };
 
+                // TODO: Normal scale and occlusion strength.
+                if let Some(nmt) = material.normal_texture {
+                    textures.push(TextureIndex {
+                        index: nmt.index as usize,
+                        t_type: TextureType::Normal
+                    });
+                }
+
+                if let Some(oct) = material.occlusion_texture {
+                    textures.push(TextureIndex {
+                        index: oct.index as usize,
+                        t_type: TextureType::AmbientOcclusion
+                    })
+                }
+
+                if let Some(emt) = material.emissive_texture {
+                    textures.push(TextureIndex {
+                        index: emt.index as usize,
+                        t_type: TextureType::Emissive
+                    });
+                }
+
+                let alpha_mode = match material.alpha_mode {
+                    importers::gltf::AlphaMode::Opaque => AlphaMode::Opaque,
+                    importers::gltf::AlphaMode::Mask => AlphaMode::Cutoff,
+                    importers::gltf::AlphaMode::Blend => AlphaMode::Blend,
+                };
+
                 materials.push(Material {
                     albedo_color: base,
                     metallic_factor: metallic,
                     roughness_factor: roughness,
+                    emissive_factor: material.emissive_factor,
+                    alpha_mode,
+                    alpha_cutoff: material.alpha_cutoff,
+                    double_sided: material.double_sided,
                     textures
                 });
             }
